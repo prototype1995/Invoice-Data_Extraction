@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw
 from enum import Enum
 
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="Add your google-api reference file here"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="../recheckpython.json"
 
 #image_file = 'Add your image file with path'
 
