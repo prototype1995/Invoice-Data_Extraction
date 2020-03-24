@@ -1,0 +1,15 @@
+---__Logic for invoice data extraction__---
+
+Step 1 : Converting given PDF into images as 1.jpg, 2.jpg, 3.jpg etc. in a folder. (here o/p folder is 'output')
+Step 2 : Identify the invoice page from above said images based on some keywords like [Tax, Invoice, Billing, Shipping, Registered, Regn] etc.
+Step 3 : Categorizing the page into blocks using google-cloud-vision
+Step 4 : Identifying all the GSTIN values from the image using regex.
+Step 5 : Selecting all blocks which include GSTIN values and some predefined keywords such as [GSTIN, Registered, Regn]
+Step 6 : Avoiding blocks which contain some invalid keywords like [Adani, Billing, Shipping, Bill, Ship]
+Step 7 : Now, we have the final set of valid data from which Mobile Number, Email, State, Vendor-name are retrieved using regex.
+Step 8 : Then street1, street2 etc are also retrieved and the whole identified data are stored in a dictionary.
+Step 9 : At last, this dictionary is converted into a json object which is the final result.
+
+Modifications/Corrections to be done :
+1) Identification of Street1, Street2 etc. values.
+2) Remove vendor-name, mobile numbers, gstin values and already fetched data from Street values.
