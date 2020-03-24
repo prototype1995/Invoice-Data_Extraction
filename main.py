@@ -62,25 +62,109 @@ def value_retrieve(ret_val):
         return data
 
 
-def return_valid_data(inv_file):
+def return_json(dict):
     '''
-    Method to fetch valid data from the invoice page with required details.
+    Method to return a json file from a dictionary
+    Parameters: Merged dictionary
+    Returns: Converted json object.
+    '''
+    final_data = json.dumps(dict)
+    return final_data
+
+
+def find_vendor_name(data, vendor_kwd, typ=0):
+    '''
+    Method to find vendor name.
+    Here, typ denotes the type of data. 0-string ... 1-list
+    Parameters: source data, vendor identification keyword list, type of source data.
+    Returns: Vendor Name, Item containing vndr_name
+    '''
+    list_data = []
+    if typ == 0:
+        list_data.append(data)
+        data = list_data
+    else:
+        pass
+    vndr_name = ''
+    for i in data:
+        for k in vendor_kwd:
+            if i.find(k) != -1:
+                end_lim = i.find(k) + len(k)
+                vndr_name = i[:end_lim]
+                return vndr_name, i
+    # print('Vndr : '+vndr_name)  # Debugging
+    return vndr_name, ''
+
+
+'''
+---- REMAINING TO BE DONE ----
+# Looking for other Vendor details
+def find_other_vndr_dtls(doc, vndr_nm):
+    other_data = []
+    location = wr.find_block_loc_from_word(doc, vndr_nm)
+    if location is None:
+        pass
+    else:
+        data = wr.text_within(document, location.vertices[0].x
+                              , location.vertices[0].y, location.vertices[2].x
+                              , location.vertices[2].y)
+        # print('\n'+data)  # Debugging
+'''
+
+
+def find_bal_data(data):
+    '''
+    Method to find balance data like Vendors Name , address etc.
+    Parameters: source data
+    Returns: dictionary with vndr_name, address etc.
+    '''
+    data_dict2 = {}
+    vendor_idntfn_kwd = ['Limited', 'LIMITED', 'Ltd', 'LTD', 'Private', 'Pvt'
+                         , 'PVT',  'PRIVATE', 'INC', 'Inc']
+    pos = 1
+    for i in data:
+        gst_value, mob_num, mail = wr.reg_expn(i)
+        data_dict2['Vendor Name'] = ''
+        split_data = i.split(',')
+        if len(split_data) >= 2:
+            if value_retrieve(gst_value) == '' and value_retrieve(mob_num) == '' and value_retrieve(mail) == '':
+                data_dict2['Vendor Name'], rem_data = find_vendor_name(split_data, vendor_idntfn_kwd, 1)
+                # removing vendor name included item from list.
+                if data_dict2['Vendor Name'] != '':
+                    try:
+                        split_data.remove(rem_data)
+                    except:
+                        pass
+                for j in split_data:
+                    data_dict2['Street'+str(pos)] = j
+                    pos += 1
+            else:
+                data_dict2['Vendor Name'], rem_data = find_vendor_name(split_data, vendor_idntfn_kwd, 1)
+        else:
+            if data_dict2['Vendor Name'] == '':
+                data_dict2['Vendor Name'], nonuse_data = find_vendor_name(i, vendor_idntfn_kwd, 0)
+    return data_dict2
+
+
+def return_valid_json(inv_file):
+    '''
+    Method to fetch valid data as json object from the invoice page with required details.
     Parameters: image file with path
-    Returns: Valid data, dictionary with gst,mob,mail etc. values.
+    Returns: JSON object
     '''
     response, document, text = wr.data_retrieve(inv_file)
     # detection by block
     # bounds = wr.get_document_bounds(response, FeatureType.BLOCK, document)
     GST_values, MOB_nums, Mails = wr.reg_expn(text)
     check_data = GST_values
-    check_val = ('Registered', 'Regd', 'Pvt', 'Ltd')  # Add items to be identified
+    check_val = ('Ltd', 'Pvt', 'Registered', 'Regd')  # Add items to be identified
     check_data.extend(check_val)
 
     data_coll = []
     invalid_data = []
     data_dict1 = {}  # dictionary contaning final valid data
-    avoid_data = ['Adani', 'ADANI', 'Billing', 'Shipping', 'Bill', 'Ship'
-                  , 'Buyer', 'From', 'To']
+    avoid_data = ['Adani', 'ADANI', 'Billing', 'BILLING', 'Shipping', 'SHIPPING', 'Bill', 'BILL', 'Ship'
+                  'SHIP', 'Buyer', 'BUYER', 'From', 'FROM', 'To', 'TO', 'Consignee', 'CONSIGNEE']
     city_code_dict = {
                         '01': 'Jammu & Kashmir',
                         '02': 'Himachal Pradesh',
@@ -122,8 +206,6 @@ def return_valid_data(inv_file):
     }
     for value in check_data:
         # print(value)  # Debugging
-        # state_code = gst_value[:2]
-        # print(city_code_dict[state_code]) # Debugging
         location = wr.find_block_loc_from_word(document, value)
         if location is None:
             pass
@@ -133,7 +215,7 @@ def return_valid_data(inv_file):
             data = wr.text_within(document, location.vertices[0].x
                                   , location.vertices[0].y, location.vertices[2].x
                                   , location.vertices[2].y)
-    #        print('\n'+data) # Debugging
+            # print('\n'+data)  # Debugging
             data_coll.append(data)
         data_coll = set(data_coll)  # Done to avoid repetition
         data_coll = list(data_coll)  # to list
@@ -164,87 +246,16 @@ def return_valid_data(inv_file):
                     data_dict1['Sate'] = city_code_dict[str(valid_GST_value[0])[:2]]
                 except:
                     data_dict1['Sate'] = ''
+    data_dict2 = find_bal_data(data_coll)
 
-    return data_coll, data_dict1
+    final_dict = {**data_dict1, **data_dict2}  # Way to merge two dicts
 
+    # Conversion to json object
+    final_data = return_json(final_dict)
 
-def find_vendor_name(data, vendor_kwd, typ=0):
-    '''
-    Method to find vendor name.
-    Here, typ denotes the type of data. 0-string ... 1-list
-    Parameters: source data, vendor identification keyword list, type of source data.
-    Returns: Vendor Name, Item containing vndr_name
-    '''
-    list_data = []
-    if typ == 0:
-        list_data.append(data)
-        data = list_data
-    else:
-        pass
-    vndr_name = ''
-    for i in data:
-        for k in vendor_kwd:
-            if i.find(k) != -1:
-                end_lim = i.find(k) + len(k)
-                vndr_name = i[:end_lim]
-                return vndr_name, i
-    # print('Vndr : '+vndr_name)  # Debugging
-    return vndr_name, ''
-
-
-def find_bal_data(data):
-    '''
-    Method to find balance data like Vendors Name , address etc.
-    Parameters: source data
-    Returns: dictionary with vndr_name, address etc.
-    '''
-    data_dict2 = {}
-    vendor_idntfn_kwd = ['Limited', 'Ltd', 'LTD', 'Private', 'Pvt', 'PRIVATE'
-                         , 'INC', 'Inc']
-    pos = 1
-    for i in data:
-        gst_value, mob_num, mail = wr.reg_expn(i)
-        data_dict2['Vendor Name'] = ''
-        if value_retrieve(gst_value) == '' and value_retrieve(mob_num) == '' and value_retrieve(mail) == '':
-            split_data = i.split(',')
-            data_dict2['Vendor Name'], rem_data = find_vendor_name(split_data, vendor_idntfn_kwd, 1)
-            # removing vendor name included item from list.
-            if data_dict2['Vendor Name'] != '':
-                try:
-                    split_data.remove(rem_data)
-                except:
-                    pass
-            for j in split_data:
-                data_dict2['Street'+str(pos)] = j
-                pos += 1
-        else:
-            if data_dict2['Vendor Name'] == '':
-                data_dict2['Vendor Name'], nonuse_data = find_vendor_name(i, vendor_idntfn_kwd, 0)
-    return data_dict2
-
-
-def return_json(dict):
-    '''
-    Method to return a json file from a dictionary
-    Parameters: Merged dictionary
-    Returns: Converted json object.
-    '''
-    final_data = json.dumps(dict)
     return final_data
 
 
-# Retrieving Valid data as a list and Valid ditionary which contains gstin, mob, mail etc.
-valid_data_coll, valid_data_dict1 = return_valid_data(invoice_file)
-# print(valid_data_coll)  # Debugging
-# print(valid_data_dict1)  # Debugging
-
-valid_data_dict2 = find_bal_data(valid_data_coll)
-# print(valid_data_dict2)  # Debugging
-
-final_dict = {**valid_data_dict1, **valid_data_dict2}  # Way to merge two dicts
-# print(valid_data_dict1.update(valid_data_dict2))
-# print(final_dict)
-
-# Conversion to json object
-final_data = return_json(final_dict)
-print(final_data)
+# Accepting json object
+json_obj = return_valid_json(invoice_file)
+print(json_obj)
